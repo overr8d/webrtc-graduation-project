@@ -1,0 +1,16 @@
+
+{
+  "name": "webrtc_graduation_project",
+  "version": "0.0.1",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Pronious",
+  "license": "ISC",
+  "dependencies": {
+   "node-static": "0.7.7",
+    "socket.io": "1.2.0"
+  }
+}
