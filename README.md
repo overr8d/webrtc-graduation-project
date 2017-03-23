@@ -32,9 +32,32 @@ Signalling is a process of coordinating a communication. In order to setup a cal
 
 To avoid redundancy and maximize compatibility with established technologies, signalling protocols and standards **are not** specified by the WebRTC standards. 
 
+### Signalling Choices 
+<img width="480" alt="screen shot 2017-03-23 at 8 31 08" src="https://cloud.githubusercontent.com/assets/18366839/24259277/1b03108a-0ff9-11e7-943a-67b7a1dacabf.png">
+
+
 ## RTCPeerConnection
 RTCPeerConnection is the API used to create connection between peers and communicate audio and video. 
+```javascript
+// Create peer connection 
+pc= new RTCPeerConnection(
+  {iceServers:[{“url”: “stun:stun.1.google.com:19302”},
+               {“url”: “turn:user@turn.myserver.com”, 
+                “credential” : “test”}
+]});
 
+// The next step in getting your local MediaStream to the other browser is to tell your browser about it. 
+// The method for doing that is addStream():
+
+// Get local audio and video
+getUserMedia({“audio”:true, “video”:true}, successCB, failureCB);
+
+function successCB(){
+// Tell browser I want to send the MediaStream 
+pc.addStream(myStream);
+}
+
+```
 Imagine Alice trying to call Eve, below is the full mechanism:
 * Alice creates an **RTCPeerConnection** object,
 * Alice creates an offer (an SDP session description) with the RTCPeerConnection **createOffer()** method,
@@ -67,4 +90,65 @@ RTCPeerConnection tries to set up direct communication between peers over UDP, i
 <img width="480" alt="screen shot 2017-03-23 at 18 31 08" src="https://cloud.githubusercontent.com/assets/18366839/24255557/866d0f66-0fee-11e7-8382-0cdf5395d510.png">
 
 They have public addresses, so they can be contacted by peers, even if they are behind firewalls or NATs. Unlike STUN servers, they consume a lot of bandwidth, this is why they have to be beefier. 
+
+## How to Set up WebRTC Session
+* Obtain local media, via **getUserMedia()**,  
+```javascript
+// Request access to audio and video 
+getUserMedia({"audio":true, "video":true}, gotUserMedia,didntGetUserMedia);
+
+function gotUserMedia(s) { 
+var myVideoElement = getElementById("myvideoelement"); 
+// Play captured MediaStream via video element 
+myVideoElement.srcObject = s; 
+} 
+function didntGetUserMedia(){
+// Handle it!
+}
+```
+* Setup a connection between the browser and the peer via **RTCPeerConnection API**. One peer connection per pair of browsers. The only input to the RTCPeerConnection constructor method is a configuration object containing the information that **ICE**, Interactive Connectivity Establishment, will use to “punch holes” through intervening NAT devices and firewalls,
+* Attach media and data channels to the connection. Every change in media requires a negotiation between browsers of how media will be represented on the channel. When a request is made, locally or remotely, to add or remove media, the browser can be asked to generate an appropriate **RTCSessionDescription** object (a container for a session description information about how to establish the media session),
+* Exchange session descriptions. Once both exchanged Description objects, the media or data session can be established. Both browsers begin hole punching. Once complete, key negotiation for the secure media session can begin. Then, the media or data session can begin. Note that all of this activity is done by the browser on behalf of the JS code,
+* Closing the Connection. Either browser can close the connection. **close()** calls on the RTCPeerConnection. This causes ICE processing and media streaming to stop. Once the session is over, the browser removes any session-granted permissions to access the mic and camera of the device, so a new session will require new permissions from the user. 
+
+## JavaScript Offer/Answer Control
+All your local browser cares about is 2 particular calls:
+```javascript
+// Tell my browser what my session description is 
+pc.setLocalDescription(mySessionDescription);
+
+// Tell my browser what the peer’s session description is
+pc.setRemoteDescription(yourSessionDescription);
+```
+Those session description objects describe not only the format of what they want to send, but also what they want to receive. If these 2 are compatible per SDP negotiation rules, then we have a successful negotiation and the media can begin flowing. 
+```javascript
+// Generate an offer 
+pc.createOffer(gotOffer, didntGetOffer);
+
+function gotOffer(aSessionDescription) { 
+// life is good.
+setLocalDescription(aSessionDescription);
+// Now send the session description (the offer) to the peer so 
+// it can a) pass the offer to setRemoteDescription and b) call // createAnswer as shown below. 
+}
+
+///////// OR ///////// 
+// Generate an answer (requires setRemoteDescription to have been 
+// called already with the offer)
+pc.createAnswer(gotAnswer, didntGetAnswer);
+
+function gotAnswer(aSessionDescription) { 
+// life is really good. 
+setLocalDescription(aSessionDescription);
+// Now send the session description (the answer) to the peer so 
+// it can pass the answer to setRemoteDescription. 
+} 
+
+//  Note that for a given negotiation, you will only generate *one* 
+//  of these! Whoever generates the offer is starting the 
+//  negotiation. Whoever receives the offer from the other must 
+//  then generate an answer and send it back.
+```
+
+But when do you generate an offer? Ultimately only the browser knows when a new **offer/answer** negotiation needs to occur, and WebRTC provides the **negotiationneeded** event and associated **onnegotiationneeded** handler that can be defined to generate an offer. It will execute this handler anytime it realizes that something has changed that would require media negotiation. This could happen because your application called **addStream()**, it could happen because the remote peer changed the stream, and it could fix with a new negotiation. In short, your code needs to set **onnegotiationneeded**  handler in order to be robust to calls for new media negotiation. 
 
