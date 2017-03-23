@@ -1,4 +1,4 @@
-# WebRTC Graduation Project
+# WebRTC Graduation Project- Nuts& Bolts
 ## Popular WebRTC JS APIs
 * **getUserMedia():** Capture audio and video
 * **MediaRecorder():** Record audio and video
